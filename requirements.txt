@@ -1,0 +1,8 @@
+streamlit
+chromadb
+langchain-google-genai
+langchain-core
+PyYAML
+onnxruntime
+pytube
+youtube_transcript_api
