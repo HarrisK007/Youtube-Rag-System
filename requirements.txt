@@ -1,5 +1,5 @@
+python-3.9
 streamlit
-sqlite3 >= 3.35.0
 chromadb
 langchain-google-genai
 langchain-core
