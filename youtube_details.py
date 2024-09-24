@@ -68,9 +68,8 @@ def get_video_details(video_url):
         
         # Extract video details
         title = yt.title
-        description = yt.description
+        description = "No Descrption" if yt.description==None else yt.description
         channel_name = yt.author
-
         return {
             'title': title,
             'description': description,

@@ -4,8 +4,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 import os
 import yaml
 from youtube_details import get_video_id, get_available_languages, extract_transcription, get_video_details
+import chromadb
 
-# Set page configuration to use wide mode
+    
 st.set_page_config(page_title="YouTube Video Processor", layout="wide")
 
 # Apply custom CSS to adjust column widths and scrolling
@@ -38,12 +39,28 @@ st.markdown(
 )
 
 # Initialize session state variables if they don't exist
+if "chromadb" not in st.session_state:
+    print("CHROMADB")
+    st.session_state.chromadb = chromadb.Client()
+# Try to get the existing colletion, or create a new one if it doesn't existc
+if 'collection' not in st.session_state:
+    client=chromadb.Client()
+    try:
+        print("GET_COLLECTION")
+        st.session_state.collection = client.get_collection(name="video_transcriptions")
+    except Exception as e:
+        print("CREATED_COLLECTION")
+        st.session_state.collection = client.create_collection(name="video_transcriptions")
 if 'video_url' not in st.session_state:
     st.session_state.video_url = ""
 if 'transcription' not in st.session_state:
     st.session_state.transcription = None
+if 'transcription_timeframes' not in st.session_state:
+    st.session_state.transcription_with_timeframes = None
 if 'chat_sessions' not in st.session_state:
     st.session_state.chat_sessions = []
+if 'vide_details' not in st.session_state:
+    st.session_state.video_details = {}
 if 'embed_url' not in st.session_state:
     st.session_state.embed_url = ""
 
@@ -83,7 +100,14 @@ with col1:
                 languages = get_available_languages(video_id)
                 if languages:
                     st.session_state.transcription, transcription_with_timeframes = extract_transcription(video_id, languages[0][1])
-
+                    st.session_state.video_details=get_video_details(st.session_state.video_url)
+                    for segment in transcription_with_timeframes:
+                        print(str(segment['start']))
+                        print(segment['text'])
+                        st.session_state.collection.add(
+                            ids=[str(segment['start'])],
+                            documents=[segment['text']]
+                        )
                     if st.session_state.transcription:
                         st.success("Video processed successfully!")
                     else:
@@ -104,33 +128,66 @@ with col2:
 
     st.markdown("### Youtube-RAG")
     chat_container = st.container(height=450)
+
     if st.session_state.transcription:
         # User prompt
-        # Display conversation history in a scrollable container
-        
         prompt = st.chat_input("Ask something about the video", key="unique_chat_input_key")
         
         if prompt:
-            system_message = f"""
-            You have access to the transcription of a YouTube video. Here is a snippet of the transcription:
+            # Convert prompt to lowercase for case-insensitive matching
+            lower_prompt = prompt.lower()
+            
+            # Handle user requests for specific timeframes
+            if "play" in lower_prompt or "timeframe" in lower_prompt:
+                # Query ChromaDB
+                print(lower_prompt)
+                results = st.session_state.collection.query(query_texts=lower_prompt, n_results=1)
+                if results and results['ids']:
+                    print(results)
+                    start_time = int(float(results['ids'][0][0]))  # Assuming timeframe format is 'start-end'
+                    system_message = f"""
+                    Here is Youtube Video link:{st.session_state.embed_url} 
+                    remove extra stuff and just provide me the intial link only
+                    make sure the provided link in accurate
+                    in this formate : https://www.youtube.com/embed/CxXF7LL74CI
+                    dont add watch?v=
+                    """
+                    ai_response = llm.invoke([
+                        SystemMessage(content=system_message),
+                        HumanMessage(content=prompt)
+                    ])
+                    st.session_state.embed_url = ai_response.content
+                    video_container.video(f"{st.session_state.embed_url}"+"?start={start_time}")
+                    temp=st.session_state.embed_url+f"?start={start_time}"
+                    response = f"<a href={temp}>Sure here is Your Requested TimeFrame</a>"
+                else:
+                    response = "Sorry, I couldn't find that part of the video."
+            else:
+                # Regular chatbot response
+                system_message = f"""
+                You have access to the transcription of a YouTube video and its details.
+                Here are the video details:
+                Video Title: {st.session_state.video_details.get('title')}.
+                Video Description: {st.session_state.video_details.get('description')}.
+                Here is a snippet of the transcription:
+                Transcription: {st.session_state.transcription}.
+                You should assist the user by providing answers to their specific questions based on the content and dont let user know you have video transcription. 
+                If the user asks about something unrelated to the video, respond naturally with a friendly and conversational tone.
+                """
 
-            Transcription: {st.session_state.transcription}
+                ai_response = llm.invoke([
+                    SystemMessage(content=system_message),
+                    HumanMessage(content=prompt)
+                ])
+                response = ai_response.content
 
-            You should assist the user by providing answers to their specific questions based on the content of the video transcription. Only share relevant parts of the transcription in response to their queries. 
-
-            If the user asks about something unrelated to the video, respond naturally with a friendly and conversational tone.
-            """
-
-            ai_response = llm.invoke([
-                SystemMessage(content=system_message),
-                HumanMessage(content=prompt)
-            ])
             # Store the chat in session state
             st.session_state.chat_sessions.append({
                 'input': prompt,
-                'response': ai_response.content
+                'response': response
             })
-           
+
+        # Display conversation history
         with chat_container:
             st.markdown('<div class="chat-container">', unsafe_allow_html=True)
             if st.session_state.chat_sessions:
