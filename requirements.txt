@@ -1,4 +1,5 @@
 streamlit
+sqlite3
 chromadb
 langchain-google-genai
 langchain-core
