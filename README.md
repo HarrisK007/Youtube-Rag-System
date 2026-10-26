@@ -1,25 +1,41 @@
-# Youtube-Rag-System
+# YouTube-RAG: chat with any YouTube video
 
----MAKE SURE TO USE YOUR API KEY IN CONFIG FILE BEFORE USING IT--
+Paste a YouTube link, then ask questions about the video. The app answers from the video's own transcript and points you to the exact timestamp, so you can jump straight to the moment instead of scrubbing through it.
 
-<img src="image.png" alt="MyImage"/>
+<img src="image.png" alt="YouTube-RAG app screenshot"/>
 
-I’ve developed a Streamlit app that processes YouTube videos and leverages ChromaDB for fast, efficient video transcription storage and search. Here's what it can do:
+## How it works
 
-🔍 Key Features:
+1. **Transcript:** fetches the video's transcript (with timestamps) in any available language via `youtube-transcript-api`.
+2. **Index:** stores the timestamped transcript chunks in **ChromaDB** for fast semantic search.
+3. **Retrieve:** for each question, finds the most relevant chunks.
+4. **Answer:** **Gemini** (through LangChain) answers using only those chunks and cites the timestamps.
 
-Video Transcription & Navigation: Paste any YouTube URL, get transcription, and jump directly to key moments.
+## Features
 
-ChromaDB-Powered Search: Efficiently store and retrieve video transcriptions with fast, AI-driven search.
+- Works with `youtube.com/watch?v=` and `youtu.be/` links
+- Language picker for videos with several transcripts
+- Chat interface that shows where in the video each answer comes from
+- Built with **Streamlit**
 
-Smart Chatbot: Ask questions about the video, and an AI chatbot (powered by Google Generative AI) guides you to specific timestamps.
+## Run it
 
-🎯 Built with Langchain, Streamlit, and ChromaDB, this app makes exploring video content easier than ever!
+```bash
+pip install -r requirements.txt
+```
 
+Add your Gemini API key to `config.yaml` (keep this file private and never commit a real key):
 
+```yaml
+GOOGLE_API_KEY: your-key-here
+```
 
-Unfortunately, due to some compatibility issues with Streamlit, I couldn’t deploy this project yet. I’m excited to keep enhancing it—let me know what you think! 🤖💡
+Then start the app:
 
+```bash
+streamlit run main.py
+```
 
+## Stack
 
-#AI #MachineLearning #ChromaDB #Langchain #Streamlit #YouTubeNavigator #VideoTranscription #TechInnovation
+Python · LangChain · Google Gemini · ChromaDB · Streamlit · youtube-transcript-api
